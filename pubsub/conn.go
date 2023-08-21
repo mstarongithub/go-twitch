@@ -29,10 +29,13 @@ type Conn struct {
 	listeners sync.Mutex
 	writer    sync.Mutex
 
-	onMessage    []func(string, []byte)
+	onMessage    []func(string, []byte) // TODO: Give an actual type
 	onPong       []func(time.Duration)
 	onReconnect  []func()
 	onDisconnect []func()
+
+	// Store those for reconnects
+	scheme, host, path string
 }
 
 // IConn interface for methods used by the PubSub connection
@@ -55,20 +58,28 @@ type IConn interface {
 	Unlisten(...string) error
 	Ping() (time.Duration, error)
 
-	OnMessage(func(string, []byte))
+	OnMessage(func(string, []byte)) // TODO: Give an actual type
 	OnPong(func(time.Duration))
 	OnReconnect(func())
 	OnDisconnect(func())
 }
-
-var _ IConn = &Conn{}
 
 // IP for the PubSub server
 const IP = "pubsub-edge.twitch.tv"
 
 // Connect to the PubSub server
 func (conn *Conn) Connect() error {
-	u := url.URL{Scheme: "wss", Host: IP, Path: "/v1"}
+	return conn.ConnectCustomServer("wss", IP, "")
+}
+
+// Connect to a custom server
+// Useful for testing with, for example, the Twitch CLI
+func (conn *Conn) ConnectCustomServer(scheme, host, path string) error {
+	conn.scheme = scheme
+	conn.host = host
+	conn.path = path
+
+	u := url.URL{Scheme: scheme, Host: host, Path: path}
 	socket, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		return err
@@ -111,7 +122,7 @@ func (conn *Conn) Reconnect() error {
 	if conn.isConnected {
 		conn.Close()
 	}
-	if err := conn.Connect(); err != nil {
+	if err := conn.ConnectCustomServer(conn.scheme, conn.host, conn.path); err != nil {
 		return err
 	}
 	for _, f := range conn.onReconnect {
@@ -316,6 +327,7 @@ func (conn *Conn) Unlisten(topics ...string) error {
 	return nil
 }
 
+// TODO: Update this
 // Ping the PubSub server
 //
 // This operation will block, giving the server up to 5 seconds to respond after correcting for latency before failing
@@ -359,6 +371,7 @@ func (conn *Conn) OnDisconnect(f func()) {
 	conn.onDisconnect = append(conn.onDisconnect, f)
 }
 
+// TODO: Update this
 func (conn *Conn) reader() {
 	for {
 		msgType, bytes, err := conn.socket.ReadMessage()
@@ -407,6 +420,7 @@ func (conn *Conn) ticker() {
 	}
 }
 
+// TODO: Update this
 func (conn *Conn) handleNonce(msg Packet) {
 	if len(msg.Nonce) < 1 && conn.pending == nil && len(conn.pending) < 1 {
 		return
@@ -438,6 +452,7 @@ func (conn *Conn) handleNonce(msg Packet) {
 	c <- err
 }
 
+// TODO: Update this
 func (conn *Conn) handleMessage(bytes []byte) {
 	if len(bytes) < 1 {
 		return
