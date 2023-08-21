@@ -1,9 +1,14 @@
 package pubsub
 
+// TODO: Redo probably everything
+
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -31,18 +36,64 @@ var (
 	ErrInvalidNonceGenerator = errors.New("nonce generator is invalid")
 )
 
-// Packet stores data about a message sent to/from the PubSub server
-type Packet struct {
-	Type  MessageType  `json:"type"`
-	Nonce string       `json:"nonce,omitempty"`
-	Data  interface{}  `json:"data,omitempty"`
-	Error MessageError `json:"error,omitempty"`
+// An incoming event message containing some metadata and a payload
+type IncomingMessage struct {
+	Metadata IncomingMessageMetadata `json:"metadata"`
+	Payload  *MessagePayload         `json:"payload,omitempty"`
 }
 
-// MessageData stores data about a message packet
-type MessageData struct {
-	Topic string `json:"topic"`
-	Data  string `json:"message"`
+type IncomingMessageMetadata struct {
+	ID                  string
+	MessageType         string
+	Timestamp           time.Time
+	SubscriptionType    *string
+	SubscriptionVersion *int
+}
+
+// Twitch sends metadata as string but but the public metadata struct uses native types. Add a private wrapper to work around it
+type incomingMessageMetadataMeta struct {
+	ID                  string  `json:"message_id"`
+	MessageType         string  `json:"message_type"`
+	Timestamp           string  `json:"message_timestamp"`
+	SubscriptionType    *string `json:"subscription_type,omitempty"`
+	SubscriptionVersion *string `json:"subscription_version,omitempty"`
+}
+
+type MessagePayload struct {
+	Subscription SubscriptionData       `json:"subscription"`
+	Event        map[string]interface{} `json:"event"`
+}
+
+type SubscriptionData struct {
+	ID        string
+	Status    string
+	Type      string
+	Version   int
+	Condition SubscriptionConditionData
+	Transport SubscriptionTransportData
+	CreatedAt time.Time
+	Cost      int
+}
+
+// And again
+type subscriptionDataMeta struct {
+	ID        string                    `json:"id"`
+	Status    string                    `json:"status"`
+	Type      string                    `json:"type"`
+	Version   string                    `json:"version"`
+	Condition SubscriptionConditionData `json:"condition"`
+	Transport SubscriptionTransportData `json:"transport"`
+	CreatedAt string                    `json:"created_at"`
+	Cost      int                       `json:"cost"`
+}
+
+type SubscriptionConditionData struct {
+	BroadcastUserID string `json:"broadcaster_user_id"`
+}
+
+type SubscriptionTransportData struct {
+	Method    string `json:"method"`
+	SessionID string `json:"session_id"`
 }
 
 // TopicData stores data about a topic
@@ -94,6 +145,7 @@ const (
 type NonceGenerator func() string
 
 // ParseTopic returns a topic string with the provided arguments
+// Example: "abc", 21, [true, true, false] -> "abc.21.[true true false]"
 func ParseTopic(str string, args ...interface{}) string {
 	if len(args) > 0 {
 		var params []string
@@ -103,4 +155,49 @@ func ParseTopic(str string, args ...interface{}) string {
 		return fmt.Sprintf("%s.%s", str, strings.Join(params, "."))
 	}
 	return str
+}
+
+func (m *IncomingMessageMetadata) UnmarshalJSON(b []byte) error {
+	var mm incomingMessageMetadataMeta
+	err := json.Unmarshal(b, &mm)
+	if err != nil {
+		return err
+	}
+	m.ID = mm.ID
+	m.MessageType = m.MessageType
+	m.Timestamp, err = time.Parse(time.RFC3339Nano, mm.Timestamp)
+	if err != nil {
+		return err
+	}
+	m.SubscriptionType = mm.SubscriptionType
+	*m.SubscriptionVersion, err = strconv.Atoi(*mm.SubscriptionVersion)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SubscriptionData) UnmarshalJSON(b []byte) error {
+	var m subscriptionDataMeta
+	err := json.Unmarshal(b, &m)
+	if err != nil {
+		return err
+	}
+	s.ID = m.ID
+	s.Status = m.Status
+	s.Type = m.Type
+	s.Version, err = strconv.Atoi(m.Version)
+	if err != nil {
+		return err
+	}
+	s.Condition = m.Condition
+	s.Transport = m.Transport
+	s.CreatedAt, err = time.Parse(time.RFC3339Nano, m.CreatedAt)
+	if err != nil {
+		return err
+	}
+	s.Cost = m.Cost
+
+	return nil
 }
