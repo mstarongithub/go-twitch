@@ -36,74 +36,20 @@ var (
 	ErrInvalidNonceGenerator = errors.New("nonce generator is invalid")
 )
 
-// An incoming event message containing some metadata and a payload
-type IncomingMessage struct {
-	Metadata IncomingMessageMetadata `json:"metadata"`
-	Payload  *MessagePayload         `json:"payload,omitempty"`
-}
-
-type IncomingMessageMetadata struct {
-	ID                  string
-	MessageType         string
-	Timestamp           time.Time
-	SubscriptionType    *string
-	SubscriptionVersion *int
-}
-
-// Twitch sends metadata as string but but the public metadata struct uses native types. Add a private wrapper to work around it
-type incomingMessageMetadataMeta struct {
-	ID                  string  `json:"message_id"`
-	MessageType         string  `json:"message_type"`
-	Timestamp           string  `json:"message_timestamp"`
-	SubscriptionType    *string `json:"subscription_type,omitempty"`
-	SubscriptionVersion *string `json:"subscription_version,omitempty"`
-}
-
-type MessagePayload struct {
-	Subscription SubscriptionData       `json:"subscription"`
-	Event        map[string]interface{} `json:"event"`
-}
-
-type SubscriptionData struct {
-	ID        string
-	Status    string
-	Type      string
-	Version   int
-	Condition SubscriptionConditionData
-	Transport SubscriptionTransportData
-	CreatedAt time.Time
-	Cost      int
-}
-
-// And again
-type subscriptionDataMeta struct {
-	ID        string                    `json:"id"`
-	Status    string                    `json:"status"`
-	Type      string                    `json:"type"`
-	Version   string                    `json:"version"`
-	Condition SubscriptionConditionData `json:"condition"`
-	Transport SubscriptionTransportData `json:"transport"`
-	CreatedAt string                    `json:"created_at"`
-	Cost      int                       `json:"cost"`
-}
-
-type SubscriptionConditionData struct {
-	BroadcastUserID string `json:"broadcaster_user_id"`
-}
-
-type SubscriptionTransportData struct {
-	Method    string `json:"method"`
-	SessionID string `json:"session_id"`
-}
-
-// TopicData stores data about a topic
-type TopicData struct {
-	Topics []string `json:"topics"`
-	Token  string   `json:"auth_token,omitempty"`
-}
-
-// MessageType stores the type provided in MessageData
-type MessageType string
+const (
+	// BadMessage server received an invalid message
+	BadMessage MessageError = "ERR_BADMESSAGE"
+	// BadAuth provided token does not have required permissions
+	BadAuth MessageError = "ERR_BADAUTH"
+	// TooManyTopics attempted to listen to too many topics
+	TooManyTopics MessageError = "ERR_TOO_MANY_TOPICS"
+	// BadTopic provided topic is invalid
+	BadTopic MessageError = "ERR_BADTOPIC"
+	// InvalidTopic provided topic is invalid
+	InvalidTopic MessageError = "Invalid Topic"
+	// ServerError something went wrong on the servers side
+	ServerError MessageError = "ERR_SERVER"
+)
 
 const (
 	// Listen outgoing message type
@@ -123,26 +69,54 @@ const (
 	Reconnect MessageType = "RECONNECT"
 )
 
+const (
+	InternalServerError   = 4000 // Indicates a problem with the server (similar to an HTTP 500 status code)
+	ClientSentMessage     = 4001 // Sending outgoing messages to the server is prohibited with the exception of pong messages
+	FailedPing            = 4002 // You must respond to ping messages with a pong message. See https://dev.twitch.tv/docs/eventsub/websocket-reference/#ping-message.
+	UnusedConnection      = 4003 // When you connect to the server, you must create a subscription within 10 seconds or the connection is closed. The time limit is subject to change
+	ReconnectGraceExpired = 4004 // When you receive a session_reconnect message, you have 30 seconds to reconnect to the server and close the old connection. See https://dev.twitch.tv/docs/eventsub/websocket-reference/#reconnect-message
+	NetworkTimeout        = 4005 // Transient network timeout
+	NetworkError          = 4006 // Transient network error
+	InvalidReconnect      = 4007 // The reconnect URL is invalid
+)
+
+// MessageType stores the type provided in MessageData
+type MessageType string
+
 // MessageError stores the error provided in MessageData
 type MessageError string
 
-const (
-	// BadMessage server received an invalid message
-	BadMessage MessageError = "ERR_BADMESSAGE"
-	// BadAuth provided token does not have required permissions
-	BadAuth MessageError = "ERR_BADAUTH"
-	// TooManyTopics attempted to listen to too many topics
-	TooManyTopics MessageError = "ERR_TOO_MANY_TOPICS"
-	// BadTopic provided topic is invalid
-	BadTopic MessageError = "ERR_BADTOPIC"
-	// InvalidTopic provided topic is invalid
-	InvalidTopic MessageError = "Invalid Topic"
-	// ServerError something went wrong on the servers side
-	ServerError MessageError = "ERR_SERVER"
-)
-
 // NonceGenerator any function that returns a string that is different every time
 type NonceGenerator func() string
+
+// An incoming event message containing some metadata and a payload
+type IncomingMessage struct {
+	Metadata IncomingMessageMetadata `json:"metadata"`
+	Payload  *interface{}            `json:"payload,omitempty"`
+}
+
+type IncomingMessageMetadata struct {
+	ID                  string
+	MessageType         string
+	Timestamp           time.Time
+	SubscriptionType    *string
+	SubscriptionVersion *int
+}
+
+// Twitch sends metadata as string but but the public metadata struct uses native types. Add a private wrapper to work around it
+type incomingMessageMetadataMeta struct {
+	ID                  string  `json:"message_id"`
+	MessageType         string  `json:"message_type"`
+	Timestamp           string  `json:"message_timestamp"`
+	SubscriptionType    *string `json:"subscription_type,omitempty"`
+	SubscriptionVersion *string `json:"subscription_version,omitempty"`
+}
+
+// TopicData stores data about a topic
+type TopicData struct {
+	Topics []string `json:"topics"`
+	Token  string   `json:"auth_token,omitempty"`
+}
 
 // ParseTopic returns a topic string with the provided arguments
 // Example: "abc", 21, [true, true, false] -> "abc.21.[true true false]"
@@ -174,30 +148,6 @@ func (m *IncomingMessageMetadata) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func (s *SubscriptionData) UnmarshalJSON(b []byte) error {
-	var m subscriptionDataMeta
-	err := json.Unmarshal(b, &m)
-	if err != nil {
-		return err
-	}
-	s.ID = m.ID
-	s.Status = m.Status
-	s.Type = m.Type
-	s.Version, err = strconv.Atoi(m.Version)
-	if err != nil {
-		return err
-	}
-	s.Condition = m.Condition
-	s.Transport = m.Transport
-	s.CreatedAt, err = time.Parse(time.RFC3339Nano, m.CreatedAt)
-	if err != nil {
-		return err
-	}
-	s.Cost = m.Cost
 
 	return nil
 }
