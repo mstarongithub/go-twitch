@@ -112,30 +112,24 @@ type incomingMessageMetadataMeta struct {
 	SubscriptionVersion *string `json:"subscription_version,omitempty"`
 }
 
+type Subscription struct {
+	ID        string
+	Status    string
+	Type      string
+	Version   string
+	Cost      string
+	Condition map[string]string
+	Transport map[string]string
+}
+
 type IncomingMessagePayloadSingleEvent struct {
-	Subscription struct {
-		ID        string
-		Status    string
-		Type      string
-		Version   string
-		Cost      string
-		Condition map[string]string
-		Transport map[string]string
-	}
-	Event interface{}
+	Subscription Subscription
+	Event        interface{}
 }
 
 type IncomingMessagePayloadMultiEvent struct {
-	Subscription struct {
-		ID        string
-		Status    string
-		Type      string
-		Version   string
-		Cost      string
-		Condition map[string]string
-		Transport map[string]string
-	}
-	Events []interface{}
+	Subscription Subscription
+	Events       []interface{}
 }
 
 // TopicData stores data about a topic
