@@ -103,7 +103,7 @@ type IncomingMessageMetadata struct {
 	SubscriptionVersion *int
 }
 
-// Twitch sends metadata as string but but the public metadata struct uses native types. Add a private wrapper to work around it
+// Twitch sends metadata as string but the public metadata struct uses native types. Add a private wrapper to work around it
 type incomingMessageMetadataMeta struct {
 	ID                  string  `json:"message_id"`
 	MessageType         string  `json:"message_type"`
