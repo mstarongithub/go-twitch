@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POLL_END_EVENT = "channel.poll.end"
+
 // A Channel PollEnd Event.
 // Sent when a poll ends
 //

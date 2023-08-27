@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POINTS_REDEMPTION_UPDATE_EVENT = "channel.channel_points_custom_reward_redemption.update"
+
 // A Channel PointsRedemptionUpdate Event.
 // Sent when a redeemed channel points reward is updated
 //

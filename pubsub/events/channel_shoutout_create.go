@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_SHOUTOUT_CREATE_EVENT = "channel.shoutout.create"
+
 // A Channel ShoutoutCreate Event.
 // Sent when the target channel sends a shoutout
 //

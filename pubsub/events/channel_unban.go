@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_UNBAN_EVENT = "channel.unban"
+
 // A Channel Unban Event.
 // Sent when a user gets unbanned
 //

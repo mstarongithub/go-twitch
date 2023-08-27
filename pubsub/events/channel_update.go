@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_UPDATE_EVENT = "channel.update"
+
 // A Channel Update Event.
 //
 // Sent when the category, title, labels or language of a stream updates.

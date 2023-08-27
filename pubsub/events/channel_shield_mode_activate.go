@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_SHIELD_MODE_BEGIN_EVENT = "channel.shield_mode.begin"
+
 // A Channel ShieldModeBegin Event.
 // Sent when the shield mode is activated
 //

@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_BAN_EVENT = "channel.ban"
+
 // A Channel Ban Event.
 // Sent when a user gets banned
 //

@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_SUBSCRIPTION_END_EVENT = "channel.subscription.end"
+
 // A Channel Subscription End Event
 //
 // # Sent when a subscription to a target channel expires

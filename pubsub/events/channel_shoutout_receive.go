@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_SHOUTOUT_RECEIVE_EVENT = "channel.shoutout.receive"
+
 // A Channel ShoutoutReceive Event.
 // Sent when the target channel receives a shoutout
 //

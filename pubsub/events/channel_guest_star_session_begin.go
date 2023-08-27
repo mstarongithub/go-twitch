@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_GUEST_STAR_SESSION_BEGIN_EVENT = "channel.guest_star_session.begin"
+
 // A Channel GuestStarSessionBegin Event.
 // Sent when a guest star session begins
 //
@@ -20,6 +22,14 @@ import (
 // or
 //
 //	channel:manage:guest_star
+//
+// or
+//
+//	moderator:read:guest_star
+//
+// or
+//
+//	moderator:manage:guest_star
 //
 // # NOTE: Public Beta Event
 type ChannelGuestStarSessionBeginEvent struct {

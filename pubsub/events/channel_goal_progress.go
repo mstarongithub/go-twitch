@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_GOAL_PROGRESS_EVENT = "channel.goal.progress"
+
 // A Channel GoalProgress Event.
 // Sent when a Goal progresses.
 // Not guaranteed to arrive in order

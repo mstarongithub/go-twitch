@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POINTS_REWARDS_REMOVE_EVENT = "channel.channel_points_custom_reward.remove"
+
 // A Channel PointRewardsRemove Event.
 // Sent when a channel points reward is removed
 //

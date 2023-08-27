@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const USER_UPDATE_EVENT = "user.update"
+
 // A User Update Event.
 //
 // Sent when a user updates their account.

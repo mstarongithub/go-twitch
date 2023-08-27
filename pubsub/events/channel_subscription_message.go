@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_SUBSCRIPTION_MESSAGE_EVENT = "channel.subscription.message"
+
 // A Channel Subscription Message Event.
 //
 // Sent when a user sends a resubscription chat message to the target channel.

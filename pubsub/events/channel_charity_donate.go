@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_CHARITY_DONATE_EVENT = "channel.charity_campaign.donate"
+
 // A Channel CharityDonate Event.
 // Sent when a user donates to a charity campaign
 //

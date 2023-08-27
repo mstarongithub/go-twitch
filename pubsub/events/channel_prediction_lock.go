@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_PREDICTION_LOCK_EVENT = "channel.prediction.lock"
+
 // A Channel PredictionLock Event.
 // Sent when a prediction is locked
 //

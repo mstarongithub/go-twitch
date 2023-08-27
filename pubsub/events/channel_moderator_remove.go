@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_MODERATOR_REMOVE_EVENT = "channel.moderator.remove"
+
 // A Channel ModDemotion Event.
 // Sent when a moderator gets demoted to a user
 //

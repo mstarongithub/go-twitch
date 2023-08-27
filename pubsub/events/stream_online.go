@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const STREAM_ONLINE_EVENT = "stream.online"
+
 // A Stream Online Event.
 //
 // Sent when the target channel goes online.

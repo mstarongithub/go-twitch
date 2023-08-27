@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_HYPE_TRAIN_PROGRESS_EVENT = "channel.hype_train.progress"
+
 // A Channel HypeTrainProgress Event.
 // Sent when a HypeTrain progresses.
 // May arrive out of order

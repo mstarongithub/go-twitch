@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_CHEER_EVENT = "channel.cheer"
+
 // A Channel Subscription Event.
 // Sent when a user cheers on the target channel
 //

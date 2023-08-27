@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POINTS_REDEMPTION_ADD_EVENT = "channel.channel_points_custom_reward_redemption.add"
+
 // A Channel PointsRedemptionAdd Event.
 // Sent when a user has redeemed a custom channel points reward
 //

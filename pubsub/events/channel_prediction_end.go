@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_PREDICTION_END_EVENT = "channel.prediction.end"
+
 // A Channel PredictionEnd Event.
 // Sent when a prediction ends
 //

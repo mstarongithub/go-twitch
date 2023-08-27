@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_SHIELD_MODE_END_EVENT = "channel.shield_mode.end"
+
 // A Channel ShieldModeEnd Event.
 // Sent when the shield mode ends
 //

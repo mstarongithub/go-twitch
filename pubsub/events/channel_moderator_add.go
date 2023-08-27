@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_MODERATOR_ADD_EVENT = "channel.moderator.add"
+
 // A Channel ModPromotion Event.
 // Sent when a user gets promoted to a moderator
 //

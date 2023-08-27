@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_FOLLOW_EVENT = "channel.follow"
+
 // A Channel Follow Event.
 // Sent when a target channel receives a follow
 //

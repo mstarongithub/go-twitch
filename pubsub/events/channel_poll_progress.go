@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POLL_PROGRESS_EVENT = "channel.poll.progress"
+
 // A Channel PollProgress Event.
 // Sent when a user responds to a poll
 //

@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_CHARITY_STOP_EVENT = "channel.charity_campaign.stop"
+
 // A Channel CharityStop Event.
 // Sent when a charity campaign stops
 //

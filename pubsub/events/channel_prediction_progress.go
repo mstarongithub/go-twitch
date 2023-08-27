@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_PREDICTION_PROGRESS_EVENT = "channel.prediction.progress"
+
 // A Channel PredictionProgress Event.
 // Sent when a user participates in a prediction
 //

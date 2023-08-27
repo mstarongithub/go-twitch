@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_PREDICTION_BEGIN_EVENT = "channel.prediction.begin"
+
 // A Channel PredictionBegin Event.
 // Sent when a prediction begins
 //

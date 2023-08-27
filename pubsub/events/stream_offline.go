@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const STREAM_OFFLINE_EVENT = "stream.offline"
+
 // A Stream Offline Event.
 //
 // Sent when the target channel goes offline.

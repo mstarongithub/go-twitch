@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_HYPE_TRAIN_END_EVENT = "channel.hype_train.end"
+
 // A Channel HypeTrainEnd Event.
 // Sent when a HypeTrain ends
 //

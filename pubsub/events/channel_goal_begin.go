@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_GOAL_BEGIN_EVENT = "channel.goal.begin"
+
 // A Channel GoalBegin Event.
 // Sent when a Goal begins.
 // Not guaranteed to arrive before a ChannelGoalProgressEvent event

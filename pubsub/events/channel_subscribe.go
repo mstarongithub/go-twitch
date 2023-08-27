@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_SUBSCRIBE_EVENT = "channel.subscribe"
+
 // A Channel Subscription Event
 //
 // Sent when a a target channel receives a subscription

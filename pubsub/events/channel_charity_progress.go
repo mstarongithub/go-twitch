@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_CHARITY_PROGRESS_EVENT = "channel.charity_campaign.progress"
+
 // A Channel CharityProgress Event.
 // Sent when a charity campaign progresses
 //

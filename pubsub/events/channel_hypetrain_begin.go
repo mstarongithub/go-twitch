@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_HYPE_TRAIN_BEGIN_EVENT = "channel.hype_train.begin"
+
 // A Channel HypeTrainBegin Event.
 // Sent when a HypeTrain begins.
 // Not guaranteed to arrive before a ChannelHypeTrainProgressEvent event

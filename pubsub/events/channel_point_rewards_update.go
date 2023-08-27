@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POINTS_REWARDS_UPDATE_EVENT = "channel.channel_points_custom_reward.update"
+
 // A Channel PointRewardsUpdate Event.
 // Sent when a channel points reward is updated
 //

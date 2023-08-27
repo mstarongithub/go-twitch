@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_POLL_BEGIN_EVENT = "channel.poll.begin"
+
 // A Channel PollBegin Event.
 // Sent when a poll is started on the target channel
 //

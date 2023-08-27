@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_RAID_EVENT = "channel.raid"
+
 // A Channel Raid Event.
 // Sent when a target channel gets raided
 //

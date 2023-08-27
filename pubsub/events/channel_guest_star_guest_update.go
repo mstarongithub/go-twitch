@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_GUEST_STAR_GUEST_UPDATE_EVENT = "channel.guest_star_guest.update"
+
 // A Channel GuestStarGuestUpdate Event.
 // Sent when a guest star guest is updated
 //

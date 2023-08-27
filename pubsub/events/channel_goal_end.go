@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_GOAL_END_EVENT = "channel.goal.end"
+
 // A Channel GoalEnd Event.
 // Sent when a Goal has ended.
 //

@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const CHANNEL_GUEST_STAR_SESSION_END_EVENT = "channel.guest_star_session.end"
+
 // A Channel GuestStarSessionEnd Event.
 // Sent when a guest star session ends
 //
@@ -20,6 +22,14 @@ import (
 // or
 //
 //	channel:manage:guest_star
+//
+// or
+//
+//	moderator:read:guest_star
+//
+// or
+//
+//	moderator:manage:guest_star
 //
 // # NOTE: Public Beta Event
 type ChannelGuestStarSessionEndEvent struct {

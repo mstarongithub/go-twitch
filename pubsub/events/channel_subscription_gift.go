@@ -5,6 +5,8 @@ import (
 	"strconv"
 )
 
+const CHANNEL_SUBSCRIPTION_GIFT_EVENT = "channel.subscription.gift"
+
 // A Channel Subscription Gifted Event.
 //
 // Sent when a user gifts one or more subscriptions to the target channel.
