@@ -80,6 +80,14 @@ const (
 	InvalidReconnect      = 4007 // The reconnect URL is invalid
 )
 
+const (
+	WelcomeMessage      = "session_welcome"
+	KeepaliveMessage    = "session_keepalive"
+	NotificationMessage = "notification"
+	ReconnectMessage    = "session_reconnect"
+	RevocationMessage   = "revocation"
+)
+
 // MessageType stores the type provided in MessageData
 type MessageType string
 
@@ -92,7 +100,7 @@ type NonceGenerator func() string
 // An incoming event message containing some metadata and a payload
 type IncomingMessage struct {
 	Metadata IncomingMessageMetadata `json:"metadata"`
-	Payload  *interface{}            `json:"payload,omitempty"`
+	Payload  interface{}             `json:"payload"`
 }
 
 type IncomingMessageMetadata struct {
@@ -113,23 +121,23 @@ type incomingMessageMetadataMeta struct {
 }
 
 type Subscription struct {
-	ID        string
-	Status    string
-	Type      string
-	Version   string
-	Cost      string
-	Condition map[string]string
-	Transport map[string]string
+	ID        string            `json:"id"`
+	Status    string            `json:"status"`
+	Type      string            `json:"type"`
+	Version   string            `json:"version"`
+	Cost      string            `json:"cost"`
+	Condition map[string]string `json:"condition"`
+	Transport map[string]string `json:"transport"`
 }
 
 type IncomingMessagePayloadSingleEvent struct {
-	Subscription Subscription
-	Event        interface{}
+	Subscription Subscription `json:"subscription"`
+	Event        interface{}  `json:"event"`
 }
 
 type IncomingMessagePayloadMultiEvent struct {
-	Subscription Subscription
-	Events       []interface{}
+	Subscription Subscription  `json:"subscription"`
+	Events       []interface{} `json:"events"`
 }
 
 // TopicData stores data about a topic
