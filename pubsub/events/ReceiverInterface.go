@@ -46,7 +46,7 @@ type EventReceiver interface {
 	OnChannelPredictionLock(func(ChannelPredictionLockEvent))
 	OnChannelPredictionProgress(func(ChannelPredictionProgressEvent))
 
-	OnChannelShieldModeActivate(func(ChannelShieldModeBeginEvent))
+	OnChannelShieldModeBegin(func(ChannelShieldModeBeginEvent))
 	OnChannelShieldModeEnd(func(ChannelShieldModeEndEvent))
 
 	OnChannelShoutoutCreate(func(ChannelShoutoutCreateEvent))
