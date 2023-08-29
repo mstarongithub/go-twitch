@@ -46,7 +46,7 @@ func main() {
 
 	// Create a PubSub client
 	ps := twitch.PubSub()
-	ps.Listen("community-points-channel-v1", 44322889)
+	ps.Listen("community-points-channel-pubsub", 44322889)
 }
 ```
 

@@ -1,10 +1,11 @@
-package pubsub
+package eventsub
 
 import "sync"
 
+var maxIdsStored = 20
+
 type idChecker struct {
 	ids        []string
-	maxIds     int
 	lastStored int
 	lock       sync.Mutex
 }
@@ -12,11 +13,11 @@ type idChecker struct {
 func (i *idChecker) Add(new string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	if len(i.ids) < i.maxIds {
+	if len(i.ids) < maxIdsStored {
 		i.lastStored++
 		i.ids = append(i.ids, new)
 	} else {
-		i.lastStored = (i.lastStored + 1) % i.maxIds
+		i.lastStored = (i.lastStored + 1) % maxIdsStored
 		i.ids[i.lastStored] = new
 	}
 }
@@ -30,12 +31,4 @@ func (i *idChecker) Has(n string) bool {
 		}
 	}
 	return false
-}
-
-func newIdChecker(maxIds int) idChecker {
-	return idChecker{
-		ids:        make([]string, 0),
-		maxIds:     maxIds,
-		lastStored: 0,
-	}
 }

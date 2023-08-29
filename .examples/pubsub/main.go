@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Adeithe/go-twitch/eventsub"
 	"os"
 	"os/signal"
 	"strings"
@@ -9,10 +10,9 @@ import (
 	"time"
 
 	"github.com/Adeithe/go-twitch"
-	"github.com/Adeithe/go-twitch/pubsub"
 )
 
-var mgr *pubsub.Client
+var mgr *eventsub.Client
 
 func main() {
 	sc := make(chan os.Signal, 1)
@@ -41,12 +41,12 @@ func main() {
 	})
 
 	channelID := 44322889
-	printErr(mgr.Listen("radio-events-v1", channelID))
+	printErr(mgr.Listen("radio-events-pubsub", channelID))
 	printErr(mgr.Listen("polls", channelID))
-	printErr(mgr.Listen("hype-train-events-v1", channelID))
+	printErr(mgr.Listen("hype-train-events-pubsub", channelID))
 	printErr(mgr.Listen("video-playback-by-id", channelID))
-	printErr(mgr.Listen("stream-chat-room-v1", channelID))
-	printErr(mgr.Listen("community-points-channel-v1", channelID))
+	printErr(mgr.Listen("stream-chat-room-pubsub", channelID))
+	printErr(mgr.Listen("community-points-channel-pubsub", channelID))
 	printErr(mgr.Listen("pv-watch-party-events", channelID))
 	printErr(mgr.Listen("extension-control", channelID))
 

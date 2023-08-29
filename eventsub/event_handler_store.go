@@ -1,6 +1,8 @@
-package pubsub
+package eventsub
 
-import "github.com/Adeithe/go-twitch/pubsub/events"
+import (
+	"github.com/Adeithe/go-twitch/eventsub/events"
+)
 
 type handlerStore struct {
 	channelBanEventHandlers                []func(events.ChannelBanEvent)
