@@ -2,9 +2,10 @@ package eventsub
 
 import (
 	"fmt"
-	"github.com/Adeithe/go-twitch/eventsub/events"
 	"sync"
 	"time"
+
+	"github.com/Adeithe/go-twitch/eventsub/events"
 )
 
 // Client stores data about a PubSub shard manager
@@ -169,8 +170,7 @@ func (client *Client) Close() {
 }
 
 // Listen to a topic on the best available shard
-func (client *Client) Listen(topic string, args ...interface{}) error {
-	topic = ParseTopic(topic, args...)
+func (client *Client) Listen(topic Topic) error {
 	shard, err := client.GetNextShard()
 	if err != nil {
 		return err
@@ -192,8 +192,7 @@ func (client *Client) Listen(topic string, args ...interface{}) error {
 }
 
 // ListenWithAuth starts listening to a topic on the best available shard using the provided authentication token
-func (client *Client) ListenWithAuth(token string, topic string, args ...interface{}) error {
-	topic = ParseTopic(topic, args...)
+func (client *Client) ListenWithAuth(token string, topic Topic) error {
 	shard, err := client.GetNextShard()
 	if err != nil {
 		return err
@@ -217,7 +216,7 @@ func (client *Client) ListenWithAuth(token string, topic string, args ...interfa
 // Unlisten from the provided topics
 //
 // Will return the first error that occurs, if any
-func (client *Client) Unlisten(topics ...string) error {
+func (client *Client) Unlisten(topics ...Topic) error {
 	client.mx.Lock()
 	defer client.mx.Unlock()
 	for _, shard := range client.shards {

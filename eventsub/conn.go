@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	messages "github.com/Adeithe/go-twitch/eventsub/messages"
-	"github.com/Adeithe/go-twitch/eventsub/nonce"
-	"github.com/mitchellh/mapstructure"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	messages "github.com/Adeithe/go-twitch/eventsub/messages"
+	"github.com/Adeithe/go-twitch/eventsub/nonce"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/gorilla/websocket"
 )
@@ -99,7 +100,7 @@ func (conn *Conn) ConnectCustomServer(scheme, host, path string) error {
 			wg.Add(1)
 			go func(token string, topics ...Topic) {
 				for _, topic := range topics {
-					if err := conn.ListenWithAuth(topic.ChannelID, token, topic.Name, topic.Version); err == nil {
+					if err := conn.ListenWithAuth(token, topic); err == nil {
 						rejoined[token] = topics
 					}
 				}
@@ -190,24 +191,24 @@ func (conn *Conn) HasTopic(topic Topic) bool {
 // Listen to a topic using no authentication token
 //
 // This operation will block, giving the server up to 5 seconds to respond after correcting for latency before failing
-func (conn *Conn) Listen(channelID int, topic string, version int) error {
-	return conn.ListenWithAuth(channelID, "", topic, version)
+func (conn *Conn) Listen(topic Topic) error {
+	return conn.ListenWithAuth("", topic)
 }
 
 // ListenWithAuth starts listening to a topic using the provided authentication token
 //
 // This operation will block, giving the server up to 5 seconds to respond after correcting for latency before failing
-func (conn *Conn) ListenWithAuth(channelID int, token string, topic string, version int) error {
+func (conn *Conn) ListenWithAuth(token string, topic Topic) error {
 	if conn.GetNumTopics()+1 > conn.length {
 		return ErrShardTooManyTopics
 	}
-
+	// TODO: Actually create useful data for Twitch
 	jsBody := []byte(fmt.Sprintf(""))
 	http.NewRequest("POST", "https://api.twitch.tv/helix/eventsub/subscriptions", bytes.NewReader(jsBody))
 	conn.listeners.Lock()
 	defer conn.listeners.Unlock()
 	if conn.topics == nil {
-		conn.topics = make(map[string][]string)
+		conn.topics = make(map[string][]Topic)
 	}
 	conn.topics[token] = append(conn.topics[token], topic)
 	return nil

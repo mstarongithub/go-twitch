@@ -5,9 +5,7 @@ package eventsub
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -152,19 +150,6 @@ type IncomingMessagePayloadMultiEvent struct {
 type TopicData struct {
 	Topics []string `json:"topics"`
 	Token  string   `json:"auth_token,omitempty"`
-}
-
-// ParseTopic returns a topic string with the provided arguments
-// Example: "abc", 21, [true, true, false] -> "abc.21.[true true false]"
-func ParseTopic(str string, args ...interface{}) string {
-	if len(args) > 0 {
-		var params []string
-		for _, arg := range args {
-			params = append(params, fmt.Sprint(arg))
-		}
-		return fmt.Sprintf("%s.%s", str, strings.Join(params, "."))
-	}
-	return str
 }
 
 func (m *IncomingMessageMetadata) UnmarshalJSON(b []byte) error {

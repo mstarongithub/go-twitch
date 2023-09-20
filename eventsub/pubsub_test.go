@@ -7,11 +7,17 @@ import (
 
 // TODO: Update tests
 
+const chanID = 44322889
+
 func TestShardedConnection(t *testing.T) {
 	client := New()
 	client.SetMaxShards(0)
 	client.SetMaxTopicsPerShard(0)
-	topic := ParseTopic("stream-chat-room-pubsub", 44322889)
+	topic := Topic{
+		Name:      "Heck if I know",
+		Version:   1,
+		ChannelID: chanID,
+	}
 	if err := client.Listen(topic); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +34,11 @@ func TestSingleConnection(t *testing.T) {
 	if err := conn.Connect(); err != nil {
 		t.Fatal(err)
 	}
-	topic := ParseTopic("stream-chat-room-pubsub", 44322889)
+	topic := Topic{
+		Name:      "Heck if I know",
+		Version:   1,
+		ChannelID: chanID,
+	}
 	if err := conn.Listen(topic); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +57,11 @@ func TestAuthenticatedConnection(t *testing.T) {
 		t.Skipf("TWITCH_TOKEN is not set. Skipping...")
 	}
 	client := New()
-	topic := ParseTopic("stream-chat-room-pubsub", 44322889)
+	topic := Topic{
+		Name:      "Heck if I know",
+		Version:   1,
+		ChannelID: chanID,
+	}
 	if err := client.ListenWithAuth(token, topic); err != nil {
 		t.Fatal(err)
 	}
