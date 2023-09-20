@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/Adeithe/go-twitch/eventsub"
+	"github.com/Adeithe/go-twitch/pubsub"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,7 +12,7 @@ import (
 	"github.com/Adeithe/go-twitch"
 )
 
-var mgr *eventsub.Client
+var mgr *pubsub.Client
 
 func main() {
 	sc := make(chan os.Signal, 1)

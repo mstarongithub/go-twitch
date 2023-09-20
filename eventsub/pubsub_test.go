@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// TODO: Update tests
+
 func TestShardedConnection(t *testing.T) {
 	client := New()
 	client.SetMaxShards(0)
@@ -36,11 +38,6 @@ func TestSingleConnection(t *testing.T) {
 	if err := conn.Unlisten(topic); err != nil {
 		t.Fatal(err)
 	}
-	latency, err := conn.Ping()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("latency of %dms", latency.Milliseconds())
 	conn.Close()
 }
 

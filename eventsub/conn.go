@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Adeithe/go-twitch/eventsub/events"
-	events3 "github.com/Adeithe/go-twitch/eventsub/messages"
+	messages "github.com/Adeithe/go-twitch/eventsub/messages"
 	"github.com/Adeithe/go-twitch/eventsub/nonce"
 	"github.com/mitchellh/mapstructure"
 	"net/http"
@@ -28,57 +27,28 @@ type Conn struct {
 	ping        chan bool
 
 	generator NonceGenerator
-	topics    map[string][]string
+	topics    map[string][]Topic
 	pending   map[string]chan error
 	nonces    sync.Mutex
 	listeners sync.Mutex
 	writer    sync.Mutex
 
-	onRawMessage []func([]byte) // TODO: Give an actual type
-	onPong       []func(time.Duration)
-	onReconnect  []func()
-	onDisconnect []func()
-	onError      []func(err error)
+	onRawMessage   []func([]byte)
+	onNotification []func(IncomingMessage)
+	onPong         []func(time.Duration)
+	onReconnect    []func()
+	onDisconnect   []func()
+	onError        []func(err error)
 
 	// Store those for reconnects
 	scheme, host, path string
-
-	handlerStore
 
 	idChecker idChecker
 
 	lastMessage      time.Time
 	keepAliveTimeout time.Duration // Max timeout diff in seconds
 	sessionID        string
-}
-
-// TODO: Is this interface really needed?
-// IConn interface for methods used by the PubSub connection
-type IConn interface {
-	Connect() error
-	Reconnect() error
-	Write(int, []byte) error
-	WriteMessage(MessageType, interface{}) error
-	WriteMessageWithNonce(MessageType, string, interface{}) error
-	Close()
-
-	IsConnected() bool
-	SetNonceGenerator(NonceGenerator) error
-	SetMaxTopics(int)
-	GetNumTopics() int
-	HasTopic(string) bool
-
-	Listen(...string) error
-	ListenWithAuth(string, ...string) error
-	Unlisten(...string) error
-	Ping() (time.Duration, error)
-
-	OnRawMessage(func([]byte)) // TODO: Give an actual type
-	OnPong(func(time.Duration))
-	OnReconnect(func())
-	OnDisconnect(func())
-
-	events.EventReceiver
+	cleanRejoin      bool
 }
 
 // IP for the PubSub server
@@ -121,15 +91,17 @@ func (conn *Conn) ConnectCustomServer(scheme, host, path string) error {
 	conn.isConnected = true
 	go conn.reader()
 	go conn.timeoutChecker()
-	if conn.topics != nil {
+	if conn.topics != nil && !conn.cleanRejoin {
 		var wg sync.WaitGroup
 		conn.listeners.Lock()
-		rejoined := make(map[string][]string)
+		rejoined := make(map[string][]Topic)
 		for token, topics := range conn.topics {
 			wg.Add(1)
-			go func(token string, topics ...string) {
-				if err := conn.ListenWithAuth(token, topics...); err == nil {
-					rejoined[token] = topics
+			go func(token string, topics ...Topic) {
+				for _, topic := range topics {
+					if err := conn.ListenWithAuth(topic.ChannelID, token, topic.Name, topic.Version); err == nil {
+						rejoined[token] = topics
+					}
 				}
 				wg.Done()
 			}(token, topics...)
@@ -202,12 +174,12 @@ func (conn *Conn) GetNumTopics() (n int) {
 }
 
 // HasTopic returns true if the connection is actively listening to the provided topic
-func (conn *Conn) HasTopic(topic string) bool {
+func (conn *Conn) HasTopic(topic Topic) bool {
 	conn.listeners.Lock()
 	defer conn.listeners.Unlock()
 	for _, g := range conn.topics {
 		for _, t := range g {
-			if topic == t {
+			if topic.Name == t.Name && topic.Version == t.Version && topic.ChannelID == topic.ChannelID {
 				return true
 			}
 		}
@@ -244,8 +216,8 @@ func (conn *Conn) ListenWithAuth(channelID int, token string, topic string, vers
 // Unlisten from the provided topics
 //
 // This operation will block, giving the server up to 5 seconds to respond after correcting for latency before failing
-func (conn *Conn) Unlisten(topics ...string) error {
-	var unlisten []string
+func (conn *Conn) Unlisten(topics ...Topic) error {
+	var unlisten []Topic
 	for _, topic := range topics {
 		if conn.HasTopic(topic) {
 			unlisten = append(unlisten, topic)
@@ -256,31 +228,33 @@ func (conn *Conn) Unlisten(topics ...string) error {
 	}
 	conn.listeners.Lock()
 	for token, topics := range conn.topics {
-		var new []string
+		var newTopics []Topic
 		for _, topic := range topics {
 			var b bool
 			for _, t := range unlisten {
-				if topic == t {
+				if topic.Name == t.Name && topic.Version == t.Version && topic.ChannelID == topic.ChannelID {
 					b = true
 					break
 				}
 			}
 			if !b {
-				new = append(new, topic)
+				newTopics = append(newTopics, topic)
 			}
 		}
-		conn.topics[token] = new
+		conn.topics[token] = newTopics
 	}
 	conn.listeners.Unlock()
-	if err := conn.WriteMessageWithNonce(Unlisten, conn.generator(), TopicData{Topics: unlisten}); err != nil {
-		return err
-	}
+	// TODO: Unlisten to topics here
 	return nil
 }
 
 // OnMessage event called after a message is receieved
 func (conn *Conn) OnRawMessage(f func([]byte)) {
 	conn.onRawMessage = append(conn.onRawMessage, f)
+}
+
+func (conn *Conn) OnNotification(f func(IncomingMessage)) {
+	conn.onNotification = append(conn.onNotification, f)
 }
 
 // OnPong event called after a Pong message is received, updating the latency
@@ -305,7 +279,7 @@ func (conn *Conn) OnError(f func(error)) {
 
 func (conn *Conn) reader() {
 	for {
-		msgType, bytes, err := conn.socket.ReadMessage()
+		msgType, data, err := conn.socket.ReadMessage()
 		if err != nil || msgType == websocket.CloseMessage {
 			break
 		}
@@ -314,13 +288,13 @@ func (conn *Conn) reader() {
 		for _, f := range conn.onRawMessage {
 			// Don't send the original package, make a copy first
 			// Rather use more memory than have race conditions on read
-			bytesCopy := make([]byte, len(bytes))
-			copy(bytesCopy, bytes)
+			bytesCopy := make([]byte, len(data))
+			copy(bytesCopy, data)
 			f(bytesCopy)
 		}
 
 		var msg IncomingMessage
-		if err := json.Unmarshal(bytes, &msg); err != nil {
+		if err := json.Unmarshal(data, &msg); err != nil {
 			continue
 		}
 
@@ -384,111 +358,22 @@ func (conn *Conn) timeoutChecker() {
 }
 
 func (conn *Conn) handleMessage(i IncomingMessage) {
-	event, err := events.ConvertMapToEvent(i.Payload.(map[string]interface{}), *i.Metadata.SubscriptionType)
+	var typed messages.NotificationPayload
+	err := mapstructure.Decode(i.Payload, &typed)
 	if err != nil {
-		f(fmt.Errorf("conn.handleMessage: Failed to cast Payload to correct type: %w", err))
-	}
-	// I **HATE** that I have to manually switch on every type. Doesn't even matter if I go for the type string or actual type
-	switch event.(type) {
-	case events.ChannelBanEvent:
-		conn.sendChannelBan(event.(events.ChannelBanEvent))
-	case events.ChannelCharityDonateEvent:
-		conn.sendChannelCharityDonate(event.(events.ChannelCharityDonateEvent))
-	case events.ChannelCharityProgressEvent:
-		conn.sendChannelCharityProgress(event.(events.ChannelCharityProgressEvent))
-	case events.ChannelCharityStartEvent:
-		conn.sendChannelCharityProgress(event.(events.ChannelCharityProgressEvent))
-	case events.ChannelCharityStopEvent:
-		conn.sendChannelCharityStop(event.(events.ChannelCharityStopEvent))
-	case events.ChannelCheerEvent:
-		conn.sendChannelCheer(event.(events.ChannelCheerEvent))
-	case events.ChannelFollowEvent:
-		conn.sendChannelFollow(event.(events.ChannelFollowEvent))
-	case events.ChannelGoalBeginEvent:
-		conn.sendChannelGoalBegin(event.(events.ChannelGoalBeginEvent))
-	case events.ChannelGoalEndEvent:
-		conn.sendChannelGoalEnd(event.(events.ChannelGoalEndEvent))
-	case events.ChannelGoalProgressEvent:
-		conn.sendChannelGoalProgress(event.(events.ChannelGoalProgressEvent))
-	case events.ChannelGuestStarGuestUpdateEvent:
-		conn.sendChannelGuestStarGuestGuestUpdate(event.(events.ChannelGuestStarGuestUpdateEvent))
-	case events.ChannelGuestStarSessionBeginEvent:
-		conn.sendChannelGuestStarSessionBegin(event.(events.ChannelGuestStarSessionBeginEvent))
-	case events.ChannelGuestStarSessionEndEvent:
-		conn.sendChannelGuestStarSessionEnd(event.(events.ChannelGuestStarSessionEndEvent))
-	case events.ChannelGuestStarSettingsUpdateEvent:
-		conn.sendChannelGuestStarSettingsUpdate(event.(events.ChannelGuestStarSettingsUpdateEvent))
-	case events.ChannelGuestStarSlotUpdateEvent:
-		conn.sendChannelGuestStarSlotUpdate(event.(events.ChannelGuestStarSlotUpdateEvent))
-	case events.ChannelHypeTrainBeginEvent:
-		conn.sendChannelHypeTrainBegin(event.(events.ChannelHypeTrainBeginEvent))
-	case events.ChannelHypeTrainEndEvent:
-		conn.sendChannelHypeTrainEnd(event.(events.ChannelHypeTrainEndEvent))
-	case events.ChannelHypeTrainProgressEvent:
-		conn.sendChannelHypeTrainProgress(event.(events.ChannelHypeTrainProgressEvent))
-	case events.ChannelModPromotionEvent:
-		conn.sendChannelModeratorAdd(event.(events.ChannelModPromotionEvent))
-	case events.ChannelModDemotionEvent:
-		conn.sendChannelModeratorRemove(event.(events.ChannelModDemotionEvent))
-	case events.ChannelPointsRedemptionAddEvent:
-		conn.sendChannelPointsRedemptionAdd(event.(events.ChannelPointsRedemptionAddEvent))
-	case events.ChannelPointsRedemptionUpdateEvent:
-		conn.sendChannelPointsRedemptionUpdate(event.(events.ChannelPointsRedemptionUpdateEvent))
-	case events.ChannelPointRewardsAddEvent:
-		conn.sendChannelPointsRewardsAdd(event.(events.ChannelPointRewardsAddEvent))
-	case events.ChannelPointRewardsRemoveEvent:
-		conn.sendChannelPointsRewardsRemove(event.(events.ChannelPointRewardsRemoveEvent))
-	case events.ChannelPointRewardsUpdateEvent:
-		conn.sendChannelPointsRewardsUpdate(event.(events.ChannelPointRewardsUpdateEvent))
-	case events.ChannelPollBeginEvent:
-		conn.sendChannelPollBegin(event.(events.ChannelPollBeginEvent))
-	case events.ChannelPollEndEvent:
-		conn.sendChannelPollEnd(event.(events.ChannelPollEndEvent))
-	case events.ChannelPollProgressEvent:
-		conn.sendChannelPollProgress(event.(events.ChannelPollProgressEvent))
-	case events.ChannelPredictionBeginEvent:
-		conn.sendChannelPredictionBegin(event.(events.ChannelPredictionBeginEvent))
-	case events.ChannelPredictionEndEvent:
-		conn.sendChannelPredictionEnd(event.(events.ChannelPredictionEndEvent))
-	case events.ChannelPredictionLockEvent:
-		conn.sendChannelPredictionLock(event.(events.ChannelPredictionLockEvent))
-	case events.ChannelPredictionProgressEvent:
-		conn.sendChannelPredictionProgress(event.(events.ChannelPredictionProgressEvent))
-	case events.ChannelRaidEvent:
-		conn.sendChannelRaid(event.(events.ChannelRaidEvent))
-	case events.ChannelShieldModeBeginEvent:
-		conn.sendChannelShieldModeBegin(event.(events.ChannelShieldModeBeginEvent))
-	case events.ChannelShieldModeEndEvent:
-		conn.sendChannelShieldModeEnd(event.(events.ChannelShieldModeEndEvent))
-	case events.ChannelShoutoutCreateEvent:
-		conn.sendChannelShoutoutCreate(event.(events.ChannelShoutoutCreateEvent))
-	case events.ChannelShoutoutReceiveEvent:
-		conn.sendChannelShoutoutReceive(event.(events.ChannelShoutoutReceiveEvent))
-	case events.ChannelSubscribeEvent:
-		conn.sendChannelSubscribe(event.(events.ChannelSubscribeEvent))
-	case events.ChannelSubscriptionEndEvent:
-		conn.sendChannelSubscriptionEnd(event.(events.ChannelSubscriptionEndEvent))
-	case events.ChannelSubscriptionGiftedEvent:
-		conn.sendChannelSubscriptionGift(event.(events.ChannelSubscriptionGiftedEvent))
-	case events.ChannelSubscriptionMessageEvent:
-		conn.sendChannelSubscriptionMessage(event.(events.ChannelSubscriptionMessageEvent))
-	case events.ChannelUnbanEvent:
-		conn.sendChannelUnban(event.(events.ChannelUnbanEvent))
-	case events.ChannelUpdateEvent:
-		conn.sendChannelUpdate(event.(events.ChannelUpdateEvent))
-	case events.StreamOfflineEvent:
-		conn.sendStreamOffline(event.(events.StreamOfflineEvent))
-	case events.StreamOnlineEvent:
-		conn.sendStreamOnline(event.(events.StreamOnlineEvent))
-	case events.UserUpdateEvent:
-		conn.sendUserUpdate(event.(events.UserUpdateEvent))
-	default:
+		for _, f := range conn.onError {
+			f(fmt.Errorf("conn.handleMessage: Failed to cast Payload to correct type: %w", err))
+		}
 		return
+	}
+
+	for _, f := range conn.onNotification {
+		f(i)
 	}
 }
 
 func (conn *Conn) handleReconnectRequest(msg IncomingMessage) {
-	var typed events3.ReconnectPayload
+	var typed messages.ReconnectPayload
 	err := mapstructure.Decode(msg.Payload, &typed)
 
 	conn.Close()
@@ -502,9 +387,12 @@ func (conn *Conn) handleReconnectRequest(msg IncomingMessage) {
 
 	// Store old url first
 	old := url.URL{Scheme: conn.scheme, Host: conn.host, Path: conn.path}
-
+	// set cleanRejoin to true to indicate that we should attempt a clean rejoin first
+	conn.cleanRejoin = true
 	err = conn.ConnectCustomServerRawURL(typed.Session.ReconnectURL)
 	if err != nil {
+		// Failed a clean rejoin. Flag it
+		conn.cleanRejoin = false
 		// Try to reconnect to old target and request topics again
 		err := conn.ConnectCustomServer(old.Scheme, old.Host, old.Path)
 		if err != nil {
@@ -519,7 +407,7 @@ func (conn *Conn) handleReconnectRequest(msg IncomingMessage) {
 // No idea how to deal with revocations
 // Shouldn't have to either in hopes of people not running something with this module long enough for it to matter
 func (conn *Conn) handleRevocation(msg IncomingMessage) {
-	var typed events3.RevocationPayload
+	var typed messages.RevocationPayload
 	err := mapstructure.Decode(msg.Payload, &typed)
 	if err != nil {
 		for _, f := range conn.onError {
@@ -538,7 +426,7 @@ func (conn *Conn) handleRevocation(msg IncomingMessage) {
 }
 
 func (conn *Conn) handleWelcomeMessage(msg IncomingMessage) {
-	var typed events3.WelcomePayload
+	var typed messages.WelcomePayload
 	err := mapstructure.Decode(msg.Payload, &typed)
 	if err != nil {
 		for _, f := range conn.onError {

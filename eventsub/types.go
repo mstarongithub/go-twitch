@@ -99,6 +99,12 @@ type MessageError string
 // NonceGenerator any function that returns a string that is different every time
 type NonceGenerator func() string
 
+type Topic struct {
+	Name      string
+	Version   int
+	ChannelID int
+}
+
 // An incoming event message containing some metadata and a payload
 type IncomingMessage struct {
 	Metadata IncomingMessageMetadata `json:"metadata"`

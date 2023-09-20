@@ -1,6 +1,8 @@
 package eventsub
 
 import (
+	"fmt"
+	"github.com/Adeithe/go-twitch/eventsub/events"
 	"sync"
 	"time"
 )
@@ -13,37 +15,19 @@ type Client struct {
 	awaitingClose int
 
 	onShardConnect       []func(int)
-	onShardMessage       []func(int, string, []byte)
+	onShardRawMessage    []func(int, []byte)
 	onShardLatencyUpdate []func(int, time.Duration)
 	onShardReconnect     []func(int)
 	onShardDisconnect    []func(int)
+	onError              []func(error)
 
 	mx sync.Mutex
 	wg sync.WaitGroup
+
+	handlerStore
 }
 
-// IClient interface for methods used by the PubSub shard manager
-type IClient interface {
-	SetMaxShards(int)
-	SetMaxTopicsPerShard(int)
-	GetNumShards() int
-	GetNumTopics() int
-	GetNextShard() (*Conn, error)
-	GetShard(int) (*Conn, error)
-	Close()
-
-	Listen(string, ...interface{}) error
-	ListenWithAuth(string, string, ...interface{}) error
-	Unlisten(...string) error
-
-	OnShardConnect(func(int))
-	OnShardMessage(func(int, string, []byte))
-	OnShardLatencyUpdate(func(int, time.Duration))
-	OnShardReconnect(func(int))
-	OnShardDisconnect(func(int))
-}
-
-var _ IClient = &Client{}
+var _ = &Client{}
 
 // New PubSub Client
 //
@@ -129,11 +113,12 @@ func (client *Client) GetShard(id int) (*Conn, error) {
 	}
 	if client.shards[id] == nil {
 		conn := &Conn{length: client.topicsLength}
-		conn.OnMessage(func(topic string, data []byte) {
-			for _, f := range client.onShardMessage {
-				go f(id, topic, data)
+		conn.OnRawMessage(func(data []byte) {
+			for _, f := range client.onShardRawMessage {
+				go f(id, data)
 			}
 		})
+		conn.OnNotification(client.handleMessage)
 		conn.OnPong(func(latency time.Duration) {
 			for _, f := range client.onShardLatencyUpdate {
 				go f(id, latency)
@@ -163,7 +148,6 @@ func (client *Client) GetShard(id int) (*Conn, error) {
 		if err := shard.Connect(); err != nil {
 			return nil, err
 		}
-		defer shard.Ping()
 		for _, f := range client.onShardConnect {
 			go f(id)
 		}
@@ -254,8 +238,8 @@ func (client *Client) OnShardConnect(f func(int)) {
 }
 
 // OnShardMessage event called after a shard gets a PubSub message
-func (client *Client) OnShardMessage(f func(int, string, []byte)) {
-	client.onShardMessage = append(client.onShardMessage, f)
+func (client *Client) OnShardMessage(f func(int, []byte)) {
+	client.onShardRawMessage = append(client.onShardRawMessage, f)
 }
 
 // OnShardLatencyUpdate event called after a shards latency is updated
@@ -271,4 +255,111 @@ func (client *Client) OnShardReconnect(f func(int)) {
 // OnShardDisconnect event called after a shard is disconnected from the PubSub server
 func (client *Client) OnShardDisconnect(f func(int)) {
 	client.onShardDisconnect = append(client.onShardDisconnect, f)
+}
+
+func (client *Client) handleMessage(i IncomingMessage) {
+	event, err := events.ConvertMapToEvent(i.Payload.(map[string]interface{}), *i.Metadata.SubscriptionType)
+	if err != nil {
+		for _, f := range client.onError {
+			f(fmt.Errorf("client.handleMessage: Failed to cast Payload to valid type: %w", err))
+			return
+		}
+	}
+	// I **HATE** that I have to manually switch on every type. Doesn't even matter if I go for the type string or actual type
+	switch event.(type) {
+	case events.ChannelBanEvent:
+		client.sendChannelBan(event.(events.ChannelBanEvent))
+	case events.ChannelCharityDonateEvent:
+		client.sendChannelCharityDonate(event.(events.ChannelCharityDonateEvent))
+	case events.ChannelCharityProgressEvent:
+		client.sendChannelCharityProgress(event.(events.ChannelCharityProgressEvent))
+	case events.ChannelCharityStartEvent:
+		client.sendChannelCharityProgress(event.(events.ChannelCharityProgressEvent))
+	case events.ChannelCharityStopEvent:
+		client.sendChannelCharityStop(event.(events.ChannelCharityStopEvent))
+	case events.ChannelCheerEvent:
+		client.sendChannelCheer(event.(events.ChannelCheerEvent))
+	case events.ChannelFollowEvent:
+		client.sendChannelFollow(event.(events.ChannelFollowEvent))
+	case events.ChannelGoalBeginEvent:
+		client.sendChannelGoalBegin(event.(events.ChannelGoalBeginEvent))
+	case events.ChannelGoalEndEvent:
+		client.sendChannelGoalEnd(event.(events.ChannelGoalEndEvent))
+	case events.ChannelGoalProgressEvent:
+		client.sendChannelGoalProgress(event.(events.ChannelGoalProgressEvent))
+	case events.ChannelGuestStarGuestUpdateEvent:
+		client.sendChannelGuestStarGuestGuestUpdate(event.(events.ChannelGuestStarGuestUpdateEvent))
+	case events.ChannelGuestStarSessionBeginEvent:
+		client.sendChannelGuestStarSessionBegin(event.(events.ChannelGuestStarSessionBeginEvent))
+	case events.ChannelGuestStarSessionEndEvent:
+		client.sendChannelGuestStarSessionEnd(event.(events.ChannelGuestStarSessionEndEvent))
+	case events.ChannelGuestStarSettingsUpdateEvent:
+		client.sendChannelGuestStarSettingsUpdate(event.(events.ChannelGuestStarSettingsUpdateEvent))
+	case events.ChannelGuestStarSlotUpdateEvent:
+		client.sendChannelGuestStarSlotUpdate(event.(events.ChannelGuestStarSlotUpdateEvent))
+	case events.ChannelHypeTrainBeginEvent:
+		client.sendChannelHypeTrainBegin(event.(events.ChannelHypeTrainBeginEvent))
+	case events.ChannelHypeTrainEndEvent:
+		client.sendChannelHypeTrainEnd(event.(events.ChannelHypeTrainEndEvent))
+	case events.ChannelHypeTrainProgressEvent:
+		client.sendChannelHypeTrainProgress(event.(events.ChannelHypeTrainProgressEvent))
+	case events.ChannelModPromotionEvent:
+		client.sendChannelModeratorAdd(event.(events.ChannelModPromotionEvent))
+	case events.ChannelModDemotionEvent:
+		client.sendChannelModeratorRemove(event.(events.ChannelModDemotionEvent))
+	case events.ChannelPointsRedemptionAddEvent:
+		client.sendChannelPointsRedemptionAdd(event.(events.ChannelPointsRedemptionAddEvent))
+	case events.ChannelPointsRedemptionUpdateEvent:
+		client.sendChannelPointsRedemptionUpdate(event.(events.ChannelPointsRedemptionUpdateEvent))
+	case events.ChannelPointRewardsAddEvent:
+		client.sendChannelPointsRewardsAdd(event.(events.ChannelPointRewardsAddEvent))
+	case events.ChannelPointRewardsRemoveEvent:
+		client.sendChannelPointsRewardsRemove(event.(events.ChannelPointRewardsRemoveEvent))
+	case events.ChannelPointRewardsUpdateEvent:
+		client.sendChannelPointsRewardsUpdate(event.(events.ChannelPointRewardsUpdateEvent))
+	case events.ChannelPollBeginEvent:
+		client.sendChannelPollBegin(event.(events.ChannelPollBeginEvent))
+	case events.ChannelPollEndEvent:
+		client.sendChannelPollEnd(event.(events.ChannelPollEndEvent))
+	case events.ChannelPollProgressEvent:
+		client.sendChannelPollProgress(event.(events.ChannelPollProgressEvent))
+	case events.ChannelPredictionBeginEvent:
+		client.sendChannelPredictionBegin(event.(events.ChannelPredictionBeginEvent))
+	case events.ChannelPredictionEndEvent:
+		client.sendChannelPredictionEnd(event.(events.ChannelPredictionEndEvent))
+	case events.ChannelPredictionLockEvent:
+		client.sendChannelPredictionLock(event.(events.ChannelPredictionLockEvent))
+	case events.ChannelPredictionProgressEvent:
+		client.sendChannelPredictionProgress(event.(events.ChannelPredictionProgressEvent))
+	case events.ChannelRaidEvent:
+		client.sendChannelRaid(event.(events.ChannelRaidEvent))
+	case events.ChannelShieldModeBeginEvent:
+		client.sendChannelShieldModeBegin(event.(events.ChannelShieldModeBeginEvent))
+	case events.ChannelShieldModeEndEvent:
+		client.sendChannelShieldModeEnd(event.(events.ChannelShieldModeEndEvent))
+	case events.ChannelShoutoutCreateEvent:
+		client.sendChannelShoutoutCreate(event.(events.ChannelShoutoutCreateEvent))
+	case events.ChannelShoutoutReceiveEvent:
+		client.sendChannelShoutoutReceive(event.(events.ChannelShoutoutReceiveEvent))
+	case events.ChannelSubscribeEvent:
+		client.sendChannelSubscribe(event.(events.ChannelSubscribeEvent))
+	case events.ChannelSubscriptionEndEvent:
+		client.sendChannelSubscriptionEnd(event.(events.ChannelSubscriptionEndEvent))
+	case events.ChannelSubscriptionGiftedEvent:
+		client.sendChannelSubscriptionGift(event.(events.ChannelSubscriptionGiftedEvent))
+	case events.ChannelSubscriptionMessageEvent:
+		client.sendChannelSubscriptionMessage(event.(events.ChannelSubscriptionMessageEvent))
+	case events.ChannelUnbanEvent:
+		client.sendChannelUnban(event.(events.ChannelUnbanEvent))
+	case events.ChannelUpdateEvent:
+		client.sendChannelUpdate(event.(events.ChannelUpdateEvent))
+	case events.StreamOfflineEvent:
+		client.sendStreamOffline(event.(events.StreamOfflineEvent))
+	case events.StreamOnlineEvent:
+		client.sendStreamOnline(event.(events.StreamOnlineEvent))
+	case events.UserUpdateEvent:
+		client.sendUserUpdate(event.(events.UserUpdateEvent))
+	default:
+		return
+	}
 }
